@@ -1,0 +1,12 @@
+<!doctype html><meta charset=utf-8><script src="../src/app/engine.js"></script><script>
+async function init(){const j=async u=>(await fetch(u)).json();CU.loadGlyphs(await j('../src/app/data/glyphs.json'));CU.loadSigns(await j('../src/app/data/signs.json'));CU.loadLexicon(await j('../src/app/data/lexicon.json'));CU.loadNames(await (await fetch('../src/app/data/names.tsv')).text());return CU._templates();}
+function loadImg(src){return new Promise((r,e)=>{const i=new Image();i.onload=()=>r(i);i.onerror=e;i.src=src;});}
+async function rasterise(svg,scale,fmt,q){const im=await loadImg('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg));
+ const c=document.createElement('canvas');c.width=Math.round(im.width*scale);c.height=Math.round(im.height*scale);const x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);
+ if(fmt==='jpeg'){const im2=await loadImg(c.toDataURL('image/jpeg',q||0.75));x.drawImage(im2,0,0);}return x.getImageData(0,0,c.width,c.height);}
+async function run(spec,style,theme,scale,fmt,q){const ws=[];for(const [mode,t] of spec){const r=CU.process(t,mode,{det:'man'});ws.push(...r.words);}
+ const want=ws.map(w=>w.signs.map(s=>s.u).join('')).join(' ');const svg=CU.render(ws,{style,theme});const id=await rasterise(svg,scale,fmt,q);
+ const t0=performance.now();const r=CU.readImage(id);const strip=x=>(x||'').replace(/ /g,'');
+ return {want,got:r.ok?r.unicode:null,reason:r.reason,exact:r.ok&&r.unicode===want,signsOk:r.ok&&strip(r.unicode)===strip(want),conf:r.confidence,unc:r.uncertain,style:r.style,w:id.width,h:id.height,ms:Math.round(performance.now()-t0)};}
+async function decodeUrl(u){const im=await loadImg(u);const sc=Math.min(1,2400/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);const x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);const d=CU.readImage(x.getImageData(0,0,c.width,c.height));return {ok:d.ok,u:d.unicode,reason:d.reason,conf:d.confidence};}
+</script>

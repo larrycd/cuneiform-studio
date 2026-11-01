@@ -1,0 +1,15 @@
+Cuneiform Studio - word data notice
+
+data/lexicon.json is derived from Wiktionary, the free dictionary - Akkadian and Sumerian entries
+(words, parts of speech, English glosses, inflected forms, cuneiform spellings and Sumerograms), as
+extracted by Wiktextract and published at https://kaikki.org/dictionary/Akkadian/ and
+https://kaikki.org/dictionary/Sumerian/ (extraction of the enwiktionary dump dated 2026-10-01).
+Wiktionary text is licensed under the Creative Commons Attribution-ShareAlike 4.0 International licence
+(and the GNU Free Documentation License). Authors: the Wiktionary contributors.
+
+Changes made: entries were filtered to words with English glosses, glosses were shortened, selected
+inflected forms were kept, and Sumerian spellings were limited to signs the font can draw.
+
+data/lexicon.json is therefore shared under the same licence:
+Creative Commons Attribution-ShareAlike 4.0 International
+https://creativecommons.org/licenses/by-sa/4.0/  (legal code: https://creativecommons.org/licenses/by-sa/4.0/legalcode)

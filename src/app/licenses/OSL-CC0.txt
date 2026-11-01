@@ -1,0 +1,8 @@
+Oracc Sign List (OSL)
+
+The sign names, sound values and Unicode mappings in data/signs.json are taken from osl.asl,
+https://github.com/oracc/osl (00lib/osl.asl). That file states:
+
+  "CC0: osl.asl and its associated files are placed in the public domain under a CC0 licence."
+
+https://creativecommons.org/publicdomain/zero/1.0/

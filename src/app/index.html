@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cuneiform Studio</title>
+<link rel="icon" href="icon.svg">
+<style>
+@font-face { font-family: 'NotoCun'; src: url('fonts/NotoSansCuneiform-Regular.ttf') format('truetype'); }
+:root { --bg:#14100c; --panel:#1d1712; --panel2:#272019; --line:#3d3125; --text:#f0e6d6; --dim:#ab9a84; --gold:#d9b98c; --gold2:#e8cfa6; --lapis:#2f5fa7; --ok:#5fb37f; --warn:#d9a441; --bad:#e0605a; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI", system-ui, sans-serif; }
+header { display:flex; align-items:center; gap:16px; padding:12px 20px; border-bottom:1px solid var(--line); background:linear-gradient(90deg,#1d1608,#12100c 60%); }
+header .mark svg { height:44px; width:auto; display:block; }
+header h1 { margin:0; font-size:22px; font-weight:600; font-family:Georgia, serif; letter-spacing:.5px; }
+header .by { color:var(--dim); font-size:13px; }
+header .sp { flex:1; }
+header .ver { color:var(--dim); font-size:12px; text-align:right; }
+main { display:grid; grid-template-columns: minmax(300px,1fr) minmax(440px,1.6fr) minmax(320px,1.1fr); gap:14px; padding:14px; }
+@media (max-width:1200px) { main { grid-template-columns:1fr; } }
+section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
+h2 { margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:1.2px; color:var(--gold2); }
+h3 { margin:14px 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); }
+textarea { width:100%; min-height:130px; resize:vertical; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font:15px/1.5 Consolas, "Cascadia Mono", monospace; }
+input[type=text], input[type=search] { width:100%; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:14px Consolas, monospace; }
+.seg { display:flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-bottom:10px; }
+.seg button { flex:1; background:var(--panel2); color:var(--dim); border:0; border-right:1px solid var(--line); padding:7px 8px; cursor:pointer; font-size:13px; }
+.seg button:last-child { border-right:0; }
+.seg button.on { background:var(--gold); color:#1a1408; font-weight:600; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+button.b { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:6px 11px; cursor:pointer; font-size:13px; }
+button.b:hover { border-color:var(--gold); }
+button.p { background:var(--gold); border-color:var(--gold); color:#1a1408; font-weight:600; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.chip { background:#2a2312; border:1px solid #5a4a22; color:#f0dca8; border-radius:999px; padding:3px 10px; cursor:pointer; font-size:12px; }
+.chip .h { font-family:NotoCun; font-size:18px; vertical-align:middle; }
+.hint { color:var(--dim); font-size:12px; }
+#stage { border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:64vh; display:flex; justify-content:center; align-items:flex-start; }
+#stage svg { max-width:100%; height:auto; display:block; }
+.lat { font:16px Consolas, monospace; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; word-break:break-word; white-space:pre-wrap; }
+.uni { font-family:NotoCun; font-size:30px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 10px; word-break:break-all; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--dim); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.8px; }
+td.k { font-family:Consolas, monospace; white-space:nowrap; }
+.tag { display:inline-block; font-size:11px; padding:1px 7px; border-radius:999px; border:1px solid var(--line); color:var(--dim); white-space:nowrap; }
+.tag.w { color:#a8e0bb; border-color:#2f5a40; } .tag.nm { color:#f0c27a; border-color:#5d4a26; } .tag.uv { color:#e9a0a8; border-color:#5a2a31; }
+.badge { display:inline-flex; gap:6px; align-items:center; font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); }
+.badge.ok { color:var(--ok); border-color:#2f5a40; } .badge.bad { color:var(--bad); border-color:#5a2a31; } .badge.wait { color:var(--warn); border-color:#5d4a26; }
+.conf { height:8px; background:var(--panel2); border-radius:4px; overflow:hidden; border:1px solid var(--line); }
+.conf > i { display:block; height:100%; background:linear-gradient(90deg,var(--bad),var(--warn),var(--ok)); }
+.tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+.tabs button { background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:7px; padding:5px 10px; cursor:pointer; }
+.tabs button.on { color:#fff; border-color:var(--gold); background:#2a2312; }
+.tab { display:none; } .tab.on { display:block; }
+#drop { border:2px dashed #5a4a22; border-radius:10px; padding:22px; text-align:center; color:var(--dim); cursor:pointer; }
+#drop.over { border-color:var(--gold); color:var(--text); }
+#preview { max-width:100%; max-height:220px; display:none; margin:10px auto 0; border-radius:6px; }
+.note { font-size:12px; color:var(--dim); border-left:3px solid var(--gold); padding:4px 8px; margin:8px 0; background:#211b10; }
+.res { white-space:pre-wrap; font:12px/1.5 Consolas, monospace; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px; max-height:340px; overflow:auto; }
+footer { color:var(--dim); font-size:12px; padding:6px 20px 18px; }
+a { color:var(--gold2); }
+select { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:5px 8px; }
+.dictent { padding:6px 0; border-bottom:1px solid var(--line); }
+.dictent b { font-family:Consolas, monospace; color:#fff; }
+.dictent .mini svg { height:34px; width:auto; vertical-align:middle; margin:0 6px; }
+.loading { color:var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark" id="mark" aria-hidden="true"></div>
+  <div><h1>Cuneiform Studio</h1><div class="by">Write and read Akkadian and Sumerian cuneiform &middot; by Larry Dalton</div></div>
+  <div class="sp"></div>
+  <div class="ver" id="ver">loading&hellip;</div>
+</header>
+<main>
+  <section>
+    <h2>Input</h2>
+    <div class="seg" id="modes">
+      <button data-m="english" class="on" title="Translate English into an Akkadian or Sumerian draft">English &rarr; translate</button>
+      <button data-m="sound" title="Write English words and names in cuneiform by their sound">English by sound</button>
+      <button data-m="akk" title="Akkadian words (normalised, e.g. šarrum, or syllables, e.g. šar-ru-um)">Akkadian</button>
+      <button data-m="sux" title="Sumerian words (e.g. lugal, e2, dingir)">Sumerian</button>
+      <button data-m="signs" title="Exact signs: values joined by hyphens, sign names in capitals, {d} {m} {f} {ki} markers">Signs</button>
+    </div>
+    <div class="row" id="langrow" style="margin-bottom:8px"><span class="hint">Translate into:</span><div class="seg" id="langs" style="margin:0"><button data-l="akk" class="on">Akkadian</button><button data-l="sux">Sumerian</button></div></div>
+    <textarea id="src" spellcheck="false">The king sees the god.</textarea>
+    <div class="hint" id="modehint"></div>
+    <div class="row" style="margin-top:8px"><span class="hint">Mark names with:</span>
+      <select id="det"><option value="man">the man's-name sign (DIŠ)</option><option value="woman">the woman's-name sign (MUNUS)</option><option value="god">the god sign (DINGIR)</option><option value="none">no marker</option></select></div>
+    <div class="chips" id="examples"></div>
+    <h3>Common syllable signs</h3>
+    <div class="hint">Click to insert. On a plain keyboard type sz for š, s, for ṣ, t, for ṭ and h for ḫ; numbers mark sign variants (e2 = e₂).</div>
+    <div class="chips" id="syl"></div>
+    <h3>Translation draft</h3>
+    <div id="trans" class="hint">Choose English &rarr; translate to see a draft.</div>
+  </section>
+
+  <section>
+    <h2>Cuneiform</h2>
+    <div class="row" style="margin-bottom:10px">
+      <div class="seg" id="styles" style="margin:0">
+        <button data-s="lines" class="on" title="Left to right, as cuneiform was read for most of its history">&rarr; Lines</button>
+        <button data-s="ancient" title="The early monumental layout: columns read top to bottom, right to left (as on the Code of Hammurabi)">&darr; Ancient columns</button>
+      </div>
+      <select id="theme"><option value="clay">Clay</option><option value="stone">Stone</option><option value="night">Night</option><option value="gold">Gold</option></select>
+      <select id="size"><option value="44">Small</option><option value="56" selected>Medium</option><option value="80">Large</option></select>
+      <span style="flex:1"></span>
+      <button class="b" id="dlsvg">Export SVG</button><button class="b" id="dlpng">Export PNG</button>
+    </div>
+    <div id="stage"></div>
+    <div class="row" style="margin:10px 0 4px"><span class="badge wait" id="chk1">SVG read-back</span><span class="badge wait" id="chk2">Image read-back</span></div>
+    <h3>Transliteration</h3>
+    <div class="row"><div class="lat" id="tr" style="flex:1"></div><button class="b" id="cptr">Copy</button></div>
+    <h3>Sign names</h3>
+    <div class="lat" id="names"></div>
+    <h3>Unicode cuneiform</h3>
+    <div class="row"><div class="uni" id="uni" style="flex:1"></div><button class="b" id="cpuni">Copy</button></div>
+    <h3>Words</h3>
+    <table id="words"><thead><tr><th>Word</th><th>Type</th><th>Meaning / note</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <div class="tabs" id="tabs"><button data-t="reader" class="on">Reader</button><button data-t="dict">Dictionary</button><button data-t="signs">Signs</button><button data-t="test">Self-test</button><button data-t="about">About</button></div>
+    <div class="tab on" id="t-reader">
+      <h2>Read cuneiform</h2>
+      <div id="drop">Drop an SVG, PNG or JPEG here, or click to choose a file.<br><span class="hint">SVGs from this studio are read exactly from their sign outlines. Images are read by matching each sign against the 1,234 Noto Sans Cuneiform signs, in lines or ancient columns.</span></div>
+      <input type="file" id="file" accept=".svg,.png,.jpg,.jpeg,image/*" hidden>
+      <img id="preview" alt="">
+      <div id="readout" style="margin-top:10px"></div>
+      <h3>Or paste Unicode cuneiform</h3>
+      <input type="text" id="uin" placeholder="Paste Unicode cuneiform" style="font-family:NotoCun,Consolas;font-size:22px">
+      <div id="uout" class="hint" style="margin-top:6px"></div>
+    </div>
+    <div class="tab" id="t-dict">
+      <h2>Dictionary</h2>
+      <input type="search" id="q" placeholder="Search English, Akkadian or Sumerian (e.g. king, šarrum, lugal)">
+      <div class="hint" id="dstat" style="margin:6px 0"></div>
+      <div id="dres"></div>
+    </div>
+    <div class="tab" id="t-signs">
+      <h2>Signs</h2>
+      <input type="search" id="sq" placeholder="Search by sign name or value (e.g. LUGAL, ša, an)">
+      <div class="hint" id="sstat" style="margin:6px 0"></div>
+      <div id="sres"></div>
+    </div>
+    <div class="tab" id="t-test">
+      <h2>Self-test</h2>
+      <p class="hint">Runs on this computer, now. Every number below is measured when you press the button.</p>
+      <button class="b p" id="runtest">Run self-test</button>
+      <div class="res" id="testout" style="margin-top:10px">Not run yet.</div>
+    </div>
+    <div class="tab" id="t-about">
+      <h2>About</h2>
+      <p><b>Cuneiform Studio</b> writes Akkadian and Sumerian in cuneiform and reads it back. It was designed and built by <b>Larry Dalton</b>.</p>
+      <ul class="hint">
+        <li><b>Akkadian</b> (Babylonian and Assyrian) is written syllable by syllable, as the scribes did: <i>šarrum</i> "king" becomes <i>šar-ru-um</i>.</li>
+        <li><b>Sumerian</b> words are written with their dictionary signs, mostly whole-word signs such as LUGAL "king".</li>
+        <li><b>English &rarr; translate</b> gives a rule-based <i>draft</i> in Akkadian (subject, object, verb last; case endings; past tense with person prefixes; the stative for "is") or Sumerian (subject with -e, object, verb with mu-; copula -am₃), with a confidence score.</li>
+        <li><b>English by sound</b> writes any English word or name in syllable signs, the way foreign names were written in Babylonia. It is one-way: it reads back as syllables, with likely source words.</li>
+        <li><b>Ancient columns</b> turn the text 90&deg; clockwise, giving columns read top to bottom and right to left, as on early monuments.</li>
+      </ul>
+      <h3>Credits and licences</h3>
+      <ul class="hint">
+        <li>Sign shapes: <b>Noto Sans Cuneiform</b> &copy; The Noto Project Authors, SIL Open Font License 1.1 (<a href="licenses/NotoSansCuneiform-OFL.txt">licence</a>).</li>
+        <li>Signs and readings: <b>Oracc Sign List</b> (OSL), CC0 public domain (<a href="licenses/OSL-CC0.txt">notice</a>).</li>
+        <li>Words: <b>Wiktionary</b> Akkadian and Sumerian entries via kaikki.org, CC BY-SA 4.0 (<a href="licenses/CC-BY-SA-4.0.txt">notice</a>). The word list in <i>data/lexicon.json</i> is shared under the same licence.</li>
+        <li>Pronunciations: <b>CMU Pronouncing Dictionary</b>, BSD licence (<a href="licenses/CMUdict-BSD.txt">licence</a>).</li>
+        <li>Studio software &copy; 2026 Larry Dalton.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+<footer>Cuneiform Studio runs entirely on this computer. No internet connection is used.</footer>
+<script src="engine.js"></script>
+<script>
+(function () {
+'use strict';
+var $ = function (id) { return document.getElementById(id); };
+var mode = 'english', lang = 'akk', style = 'lines', lastSVG = '', lastRes = null, ready = false, tok = 0, LEXROWS = null, SIGNS = null;
+var EX = {
+  english: ['The king sees the god.', 'I am a king.', 'The scribe writes the tablet.', 'The god built the house.', 'My house is good.', 'We go to the city.'],
+  sound: ['Larry Dalton', 'Hello world', 'Sydney Australia', 'Jessica'],
+  akk: ['šarrum', 'ilum bītam ibni', 'šar-ru-um', 'awīlum', 'ṭupšarrum ṭuppam išṭur'],
+  sux: ['lugal', 'e2', 'dingir', 'dub-sar', 'lugal-e e2 mu-du3'],
+  signs: ['{d}AMAR.UTU', 'LUGAL', 'a-na be-li2-ia', '{m}ha-am-mu-ra-bi', 'e2-gal']
+};
+var HINT = {
+  english: 'English sentences become a rule-based draft in the language you choose. Words that are not in the dictionary are written by sound.',
+  sound: 'Every English word or name is written by its sound in syllable signs.',
+  akk: 'Akkadian words, normalised (šarrum) or in syllables (šar-ru-um). Normalised words are spelled syllable by syllable.',
+  sux: 'Sumerian words in transliteration (lugal, e2 or e₂, dingir or dig̃ir). Dictionary words use their dictionary signs.',
+  signs: 'Exact signs: values joined by hyphens (a-na), sign names in capitals (LUGAL), markers in braces ({d} god, {m} man, {f} woman, {ki} place).'
+};
+var SYL = ['a','e','i','u','ba','bi','bu','da','di','du','ga','gi','gu','ka','ki','ku','la','li','lu','ma','mi','mu','na','ni','nu','pa','pi','pu','qa','ra','ri','ru','sa','si','su','ša','ši','šu','ta','ti','tu','za','zi','zu','ab','ad','ag','ak','al','am','an','ar','as','aš','at','ib','id','il','im','in','ir','iš','it','ub','ud','ul','um','un','ur','uš','ut'];
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function setChips() {
+  $('examples').innerHTML = '';
+  EX[mode].forEach(function (t) { var c = document.createElement('span'); c.className = 'chip'; c.textContent = t; c.onclick = function () { $('src').value = t; go(); }; $('examples').appendChild(c); });
+  $('modehint').textContent = HINT[mode]; $('langrow').style.display = mode === 'english' ? '' : 'none';
+}
+function mini(words, size) { return CU.render(words, { theme: 'night', size: size || 30 }).replace(/<metadata>[\s\S]*?<\/metadata>/, '').replace(/<rect width="[^"]*" height="[^"]*" fill="[^"]*"\/>/, ''); }
+function kindTag(w) { return w.kind === 'word' ? '<span class="tag w">dictionary</span>' : w.kind === 'name' ? '<span class="tag nm">by sound</span>' : w.kind === 'signs' ? '<span class="tag">as written</span>' : '<span class="tag uv">not in dictionary</span>'; }
+function go() {
+  if (!ready) return;
+  var res;
+  try { res = CU.process($('src').value, mode, { lang: lang, det: $('det').value }); } catch (e) { $('stage').innerHTML = '<div class="note">' + esc(e.message) + '</div>'; return; }
+  lastRes = res;
+  if (res.translation) {
+    var t = res.translation, h = '<div class="lat" style="margin-bottom:6px">' + esc(t.transliteration) + '</div>';
+    h += '<div class="row"><span class="hint">Confidence</span><div class="conf" style="flex:1"><i style="width:' + Math.round(t.confidence * 100) + '%"></i></div><b>' + Math.round(t.confidence * 100) + '%</b></div>';
+    t.sentences.forEach(function (s) {
+      h += '<h3>' + esc(s.english) + '</h3><table><tr><th>English</th><th>' + (lang === 'akk' ? 'Akkadian' : 'Sumerian') + '</th><th>How</th></tr>';
+      s.words.forEach(function (w) { h += '<tr><td>' + esc(w.en) + '</td><td class="k">' + esc(w.text) + '</td><td class="hint">' + esc(w.how) + (w.gloss ? ': ' + esc(w.gloss.split(' ; ')[0]) : '') + '</td></tr>'; });
+      h += '</table>'; s.notes.forEach(function (n) { h += '<div class="note">' + esc(n) + '</div>'; });
+    });
+    h += '<div class="note">A rule-based draft from small word lists, not a fluent translation. Check important text with a specialist.</div>';
+    $('trans').innerHTML = h; $('trans').className = '';
+  } else { $('trans').innerHTML = 'Choose English &rarr; translate to see a draft.'; $('trans').className = 'hint'; }
+  $('tr').textContent = res.transliteration; $('names').textContent = res.signNames; $('uni').textContent = res.unicode;
+  var tb = $('words').querySelector('tbody'); tb.innerHTML = '';
+  res.words.forEach(function (w) {
+    var m = w.gloss ? esc(w.gloss) : esc(w.how || '');
+    if (w.kind === 'name') m = 'Written by sound (' + esc(w.how) + ')' + (w.candidates && w.candidates.length ? ' <span class="hint">Reads back as: ' + esc(w.candidates.join(', ')) + '</span>' : '');
+    if (w.sumerogram) m += ' <span class="hint">Scribes also wrote it with the Sumerian sign <span style="font-family:NotoCun;font-size:18px">' + esc(w.sumerogram) + '</span>.</span>';
+    tb.insertAdjacentHTML('beforeend', '<tr><td class="k">' + esc(w.src || w.tr) + (w.tr && w.tr !== w.src ? '<br><span class="hint">' + esc(w.tr) + '</span>' : '') + '</td><td>' + kindTag(w) + '</td><td>' + m + '</td></tr>');
+  });
+  if (res.notes.length) tb.insertAdjacentHTML('beforeend', '<tr><td colspan="3"><div class="note">' + esc(res.notes.join('; ')) + '</div></td></tr>');
+  render();
+}
+function render() {
+  if (!lastRes) return;
+  if (!lastRes.words.length) { $('stage').innerHTML = '<div class="hint" style="padding:30px">Nothing to write yet.</div>'; return; }
+  var opts = { style: style, theme: $('theme').value, size: +$('size').value, width: style === 'ancient' ? 760 : 1000 };
+  lastSVG = CU.render(lastRes.words, opts); $('stage').innerHTML = lastSVG; $('stage').style.background = CU.THEMES[opts.theme].bg;
+  var d = CU.readSVG(lastSVG), ok = d.ok && d.unicode === lastRes.unicode;
+  setBadge('chk1', ok ? 'ok' : 'bad', ok ? 'SVG read-back: exact' : 'SVG read-back: ' + (d.ok ? 'differs' : 'not read'));
+  setBadge('chk2', 'wait', 'Image read-back: checking…');
+  var t = ++tok;
+  setTimeout(function () { svgToImageData(lastSVG, 1).then(function (id) { if (t !== tok) return; var r = CU.readImage(id), good = r.ok && r.unicode === lastRes.unicode;
+    setBadge('chk2', good ? 'ok' : 'bad', good ? 'Image read-back: exact (' + Math.round(r.confidence * 100) + '% match)' : 'Image read-back: ' + (r.ok ? 'differs' : 'not read')); }); }, 250);
+}
+function setBadge(id, cls, txt) { var b = $(id); b.className = 'badge ' + cls; b.textContent = txt; }
+function loadImg(src) { return new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; }); }
+function svgToCanvas(svg, scale) { return loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)).then(function (im) { var c = document.createElement('canvas'); c.width = Math.round(im.width * scale); c.height = Math.round(im.height * scale); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); return c; }); }
+function svgToImageData(svg, scale) { return svgToCanvas(svg, scale).then(function (c) { return c.getContext('2d').getImageData(0, 0, c.width, c.height); }); }
+function download(name, blob) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function fname(ext) { var b = ($('tr').textContent || 'cuneiform').normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'cuneiform'; return 'Cuneiform-' + b + '.' + ext; }
+$('dlsvg').onclick = function () { if (lastSVG) download(fname('svg'), new Blob([lastSVG], { type: 'image/svg+xml' })); };
+$('dlpng').onclick = function () { if (lastSVG) svgToCanvas(lastSVG, 2).then(function (c) { c.toBlob(function (b) { download(fname('png'), b); }, 'image/png'); }); };
+function copy(t, btn) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { var o = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = o; }, 1200); }, function () { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }); }
+$('cptr').onclick = function () { copy($('tr').textContent, this); }; $('cpuni').onclick = function () { copy($('uni').textContent, this); };
+function segClick(id, fn) { $(id).onclick = function (e) { var b = e.target.closest('button'); if (!b) return; [].forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); }); fn(b); }; }
+segClick('modes', function (b) { mode = b.dataset.m; setChips(); go(); });
+segClick('langs', function (b) { lang = b.dataset.l; go(); });
+segClick('styles', function (b) { style = b.dataset.s; render(); });
+segClick('tabs', function (b) { document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('on', t.id === 't-' + b.dataset.t); }); });
+$('theme').onchange = render; $('size').onchange = render; $('det').onchange = go;
+var tmr = null; $('src').oninput = function () { clearTimeout(tmr); tmr = setTimeout(go, 300); };
+
+/* Reader */
+var drop = $('drop');
+drop.onclick = function () { $('file').click(); };
+drop.ondragover = function (e) { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = function () { drop.classList.remove('over'); };
+drop.ondrop = function (e) { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); };
+$('file').onchange = function () { if (this.files[0]) readFile(this.files[0]); this.value = ''; };
+document.addEventListener('paste', function (e) { var it = [].filter.call(e.clipboardData.items || [], function (i) { return /^image\//.test(i.type); })[0]; if (it) readFile(it.getAsFile()); });
+function wordsTable(words) {
+  var h = '<table><tr><th>Signs</th><th>Reading</th></tr>';
+  words.forEach(function (w) {
+    var r = w.gloss ? '<b class="k">' + esc(w.norm || w.tr) + '</b> <span class="tag">' + (w.lang === 'sux' ? 'Sumerian' : 'Akkadian') + '</span> ' + esc(w.gloss) : w.candidates ? '<span class="tag nm">by sound</span> ' + esc(w.tr) + ' <span class="hint">(' + esc(w.candidates.join(', ')) + ')</span>' : '<span class="k">' + esc(w.tr) + '</span> <span class="hint">not in the dictionary</span>';
+    h += '<tr><td><span style="font-family:NotoCun;font-size:20px">' + esc(w.unicode) + '</span><br><span class="hint">' + esc(w.names.join('.')) + '</span></td><td>' + r + '</td></tr>';
+  });
+  return h + '</table>';
+}
+function showRead(r, how) {
+  var o = $('readout');
+  if (!r.ok) { o.innerHTML = '<div class="note">' + esc(r.reason) + '</div>'; return; }
+  var h = '<div class="row"><span class="badge ok">' + esc(how) + '</span><span class="hint">' + r.signs + ' signs, ' + esc(r.style) + '</span></div>';
+  h += '<h3>Transliteration</h3><div class="lat">' + esc(r.transliteration) + '</div><div class="uni" style="margin-top:6px">' + esc(r.unicode) + '</div>';
+  if (r.confidence < 1) h += '<div class="row" style="margin-top:8px"><span class="hint">Shape match</span><div class="conf" style="flex:1"><i style="width:' + Math.round(r.confidence * 100) + '%"></i></div><b>' + Math.round(r.confidence * 100) + '%</b></div>';
+  if (r.uncertain) h += '<div class="note">' + r.uncertain + ' sign(s) were close calls. Check them against the image.</div>';
+  o.innerHTML = h + '<h3>Words</h3>' + wordsTable(r.words);
+}
+function readFile(f) {
+  var o = $('readout'); o.innerHTML = '<span class="loading">Working…</span>';
+  var isSVG = /svg/.test(f.type) || /\.svg$/i.test(f.name || ''), fr = new FileReader();
+  if (isSVG) { fr.onload = function () { var txt = fr.result; $('preview').src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(txt); $('preview').style.display = 'block'; var r = CU.readSVG(txt); if (r.ok) return showRead(r, 'Read exactly from SVG outlines'); svgToImageData(txt, 2).then(function (id) { showRead(CU.readImage(id), 'Read from the rendered SVG image'); }, function () { showRead(r); }); }; fr.readAsText(f); }
+  else { fr.onload = function () { $('preview').src = fr.result; $('preview').style.display = 'block'; loadImg(fr.result).then(function (im) { var sc = Math.min(1, 2400 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); setTimeout(function () { showRead(CU.readImage(c.getContext('2d').getImageData(0, 0, c.width, c.height)), 'Read from image by shape matching'); }, 20); }, function () { o.innerHTML = '<div class="note">That file could not be opened as an image.</div>'; }); }; fr.readAsDataURL(f); }
+}
+$('uin').oninput = function () {
+  var words = this.value.trim().split(/\s+/).filter(Boolean).map(function (w) { return Array.from(w).filter(function (c) { var cp = c.codePointAt(0); return cp >= 0x12000 && cp < 0x12550; }).map(function (c) { return c.codePointAt(0).toString(16).toUpperCase(); }); }).filter(function (w) { return w.length; });
+  if (!words.length) { $('uout').innerHTML = ''; return; }
+  var svg = CU.render(words.map(function (w) { return { signs: w.map(function (h) { return { u: String.fromCodePoint(parseInt(h, 16)) }; }), tr: '' }; }), {});
+  var r = CU.readSVG(svg); $('uout').innerHTML = '<div class="lat">' + esc(r.transliteration) + '</div>' + wordsTable(r.words);
+};
+/* Dictionary and signs */
+$('q').oninput = function () {
+  var q = this.value.trim().toLowerCase(); if (!LEXROWS || q.length < 2) { $('dres').innerHTML = ''; $('dstat').textContent = LEXROWS ? LEXROWS.length + ' entries' : ''; return; }
+  var out = [], top = CU.lookupEnglish(q).slice(0, 8).map(function (x) { return x.e; });
+  LEXROWS.forEach(function (r) { var s = 0, g = r[3].toLowerCase(), w = r[1].toLowerCase(); if (w === q || w.normalize('NFD').replace(/[̀-ͯ]/g, '') === q) s = 100; else if (new RegExp('(^|[;,] )(to (be(come)? )?)?' + q.replace(/[^a-z ]/g, '') + '($|[ ,;(])').test(g)) s = 70; else if (g.indexOf(q) >= 0) s = 20;
+    var k = top.findIndex(function (e) { return e.word === r[1] && e.gloss === r[3]; }); if (k >= 0) s += 20 - k; if (s) out.push([s, r]); });
+  out.sort(function (a, b) { return b[0] - a[0]; });
+  $('dstat').textContent = out.length + ' match(es)';
+  $('dres').innerHTML = out.slice(0, 40).map(function (x) { var r = x[1], cun = r[0] === 'sux' ? r[5] : (CU.spellAkkadian(r[1]) ? CU.process(r[1], 'akk').unicode : ''); return '<div class="dictent"><b>' + esc(r[1]) + '</b> <span style="font-family:NotoCun;font-size:20px;margin:0 6px">' + esc(cun) + '</span><span class="tag">' + (r[0] === 'akk' ? 'Akkadian' : 'Sumerian') + ' ' + esc(r[2]) + '</span><br>' + esc(r[3]) + '</div>'; }).join('');
+};
+$('sq').oninput = function () {
+  var q = this.value.trim(); if (!SIGNS || !q) { $('sres').innerHTML = ''; return; }
+  var out = [], ql = q.toLowerCase();
+  var vs = CU.valueSign(q); if (vs) out.push([100, vs]);
+  Object.keys(SIGNS.signs).forEach(function (n) { if (n === vs) return; if (n.toLowerCase() === ql) out.push([90, n]); else if (n.toLowerCase().indexOf(ql) === 0 && out.length < 200) out.push([30, n]); });
+  out.sort(function (a, b) { return b[0] - a[0]; });
+  $('sstat').textContent = out.length + ' sign(s)';
+  $('sres').innerHTML = out.slice(0, 60).map(function (x) { var s = SIGNS.signs[x[1]]; return '<div class="dictent"><span style="font-family:NotoCun;font-size:26px;margin-right:8px">' + esc(s[0]) + '</span><b>' + esc(x[1]) + '</b> <span class="hint">' + esc(s[1].slice(0, 14).join(', ')) + (s[1].length > 14 ? ' …' : '') + '</span></div>'; }).join('');
+};
+/* Self-test */
+$('runtest').onclick = function () {
+  var out = $('testout'), lines = [], btn = this; btn.disabled = true; out.textContent = 'Running…';
+  function log(s) { lines.push(s); out.textContent = lines.join('\n'); }
+  setTimeout(function () {
+    var t0 = performance.now(), pass = 0, fail = 0;
+    function check(name, ok, detail) { if (ok) pass++; else fail++; log((ok ? 'PASS  ' : 'FAIL  ') + name + (detail ? '  ' + detail : '')); }
+    var syl = CU.process(SYL.join('-'), 'signs');
+    ['lines', 'ancient'].forEach(function (st) { var r = CU.readSVG(CU.render(syl.words, { style: st })); check('Syllable signs, SVG ' + st, r.ok && r.unicode === syl.unicode, r.signs + ' signs'); });
+    var ok = 0, n = 0; LEXROWS.slice(0, 400).forEach(function (r, i) { if (i % 10) return; var p = CU.process(r[1].replace(/\s+/g, '_'), r[0]); if (!p.words.length) return; ['lines', 'ancient'].forEach(function (st) { n++; var d = CU.readSVG(CU.render(p.words, { style: st })); if (d.ok && d.unicode === p.unicode) ok++; }); });
+    check('Dictionary words, SVG, both layouts', ok === n, ok + '/' + n);
+    [['šarrum', 'šar-ru-um'], ['ilum', 'i-lum'], ['hammurabi', 'ḫa-am-mu-ra-bi']].forEach(function (c) { var s = CU.spellAkkadian(c[0]); check('Akkadian spelling ' + c[0], s === c[1], s); });
+    [['The king sees the god.', 'akk', 'šarrum ilam īmur'], ['The god built the house.', 'akk', 'ilum bītam ibni'], ['The king is great.', 'sux', 'lugal gal am₃'], ['I am a king.', 'akk', 'šarrāku']].forEach(function (c) { var t = CU.translateEnglish(c[0], c[1]); check('Draft ' + c[1] + ' "' + c[0] + '"', t.transliteration === c[2], t.transliteration); });
+    var fr = CU.readSVG(CU.render(CU.process('ilum bītam ibni', 'akk').words, {})), fn = fr.words.map(function (w) { return w.norm || w.tr; }).join(' ');
+    check('Reader recognises inflected Akkadian', fn === 'ilum bītam ibni', fn);
+    log('Image read-back (rendered here, then read from pixels)…');
+    var cs = [[[['akk', 'šarrum ilum bītum']], 'lines', 'clay', 1], [[['sux', 'lugal e2 dingir']], 'lines', 'night', 1.5], [[['sound', 'Larry Dalton']], 'ancient', 'stone', 1], [[['signs', '{d}AMAR.UTU LUGAL']], 'lines', 'gold', 0.8]];
+    var chain = Promise.resolve();
+    cs.forEach(function (c) { chain = chain.then(function () { var ws = []; c[0].forEach(function (sp) { ws = ws.concat(CU.process(sp[1], sp[0], { det: 'man' }).words); }); var want = ws.map(function (w) { return w.signs.map(function (s) { return s.u; }).join(''); }).join(' ');
+      return svgToImageData(CU.render(ws, { style: c[1], theme: c[2] }), c[3]).then(function (id) { var r = CU.readImage(id); check('Image ' + c[1] + '/' + c[2] + ' x' + c[3] + ': ' + c[0][0][1], r.ok && r.unicode === want, r.ok ? r.transliteration : r.reason); }); }); });
+    chain.then(function () { log('\n' + pass + ' passed, ' + fail + ' failed, ' + Math.round(performance.now() - t0) + ' ms'); btn.disabled = false; });
+  }, 30);
+};
+SYL.forEach(function (v) { var c = document.createElement('span'); c.className = 'chip'; c.dataset.v = v; c.textContent = v; c.onclick = function () { var t = $('src'), ins = (mode === 'signs' || mode === 'sux') && t.value && !/[-\s]$/.test(t.value.slice(0, t.selectionStart)) ? '-' + v : v; var p = t.selectionStart; t.value = t.value.slice(0, p) + ins + t.value.slice(t.selectionEnd); t.focus(); t.selectionStart = t.selectionEnd = p + ins.length; go(); }; $('syl').appendChild(c); });
+function getJSON(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); }); }
+Promise.all([getJSON('data/glyphs.json'), getJSON('data/signs.json'), getJSON('data/lexicon.json'), fetch('data/names.tsv').then(function (r) { return r.text(); })]).then(function (a) {
+  CU.loadGlyphs(a[0]); CU.loadSigns(a[1]); SIGNS = a[1]; LEXROWS = a[2]; var nl = CU.loadLexicon(a[2]); var nn = CU.loadNames(a[3]);
+  var na = a[2].filter(function (r) { return r[0] === 'akk'; }).length;
+  $('ver').innerHTML = 'engine ' + CU.version + ' &middot; ' + Object.keys(a[0].glyphs).length.toLocaleString('en-AU') + ' signs &middot; ' + na + ' Akkadian + ' + (nl - na) + ' Sumerian words &middot; ' + nn.toLocaleString('en-AU') + ' pronunciations';
+  $('mark').innerHTML = mini(CU.process('{d}AMAR.UTU LUGAL', 'signs').words, 32);
+  [].forEach.call($('syl').children, function (c) { var n = CU.valueSign(c.dataset.v); if (n && SIGNS.signs[n]) c.innerHTML = '<span style="font-family:NotoCun;font-size:16px">' + SIGNS.signs[n][0] + '</span> ' + esc(c.dataset.v); });
+  ready = true; setChips(); go();
+}).catch(function (e) { $('ver').textContent = 'Data failed to load: ' + e.message; $('stage').innerHTML = '<div class="note">The studio data could not be loaded. Open it through the Cuneiform Studio server (http://localhost:8768/).</div>'; });
+})();
+</script>
+</body>
+</html>
