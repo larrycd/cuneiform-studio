@@ -1,11 +1,11 @@
-/* Cuneiform Studio engine 1.0.0 - by Larry Dalton.
+/* Cuneiform Studio engine 1.0.3 - by Larry Dalton.
    Shared by the browser studio and the Node tests. No network access, no external libraries.
    Sign shapes: Noto Sans Cuneiform (c) The Noto Project Authors, SIL OFL 1.1.
    Signs and readings: Oracc Sign List (OSL), CC0. Words: Wiktionary Akkadian and Sumerian entries (via kaikki.org), CC BY-SA 4.0.
    Pronunciations: CMU Pronouncing Dictionary, BSD. */
 (function (root) {
 'use strict';
-var C = { version: '1.0.0' };
+var C = { version: '1.0.3' };
 var GL = null, SIGNS = {}, VALUES = {}, BYCHAR = {}, LEX = null, ENIDX = {}, BYWORD = {}, BYFORM = {}, BYCUN = {}, NAMES = null, NAMES_REV = null;
 
 /* ---------------------------------------------------------------- loading */
@@ -188,6 +188,7 @@ var POSS = { my:'1s', your:'2s', his:'3sm', her:'3sf', its:'3sm', our:'1p', thei
 var AKK = {
   indep: { '1s':'anāku', '2s':'atta', '3sm':'šū', '3sf':'šī', '1p':'nīnu', '3p':'šunu' },
   suffix: { '1s':'ī', '2s':'ka', '3sm':'šu', '3sf':'ša', '1p':'ni', '3p':'šunu' },
+  dat: { '1s':'am', '2s':'kum', '3sm':'šum', '3sf':'šim', '1p':'niāšim', '3p':'šunūšim' },
   objsuf: { '1s':'anni', '2s':'ka', '3sm':'šu', '3sf':'ši', '1p':'niāti', '3p':'šunūti' },
   stat: { '1s':'āku', '2s':'āta', '3sm':'', '3sf':'at', '1p':'ānu', '3p':'ū' },
   prefix: { '1s':'a', '2s':'ta', '3sm':'i', '3sf':'i', '1p':'ni', '3p':'i' },
@@ -213,9 +214,10 @@ function findEn(w, lang, pos) {
 }
 C.findEnglish = findEn;
 function akkStem(word) { return stripLen(word).replace(/(um|am|im|u|a|i)$/, function (m) { return ''; }); }
+function akkConstruct(e) { if (e.forms.cst) return String(e.forms.cst).split(/,\s*/)[0]; var w = e.word; if (!/um$/.test(w)) return w; return w.replace(/um$/, '').replace(/(.)\1$/, '$1'); }
 function akkNoun(e, kase, poss, plural) {
   var w = e.word, base = w.replace(/(um|u)$/, '');
-  if (poss) { var st = e.forms.pron || e.forms.cst || base; return st.replace(/[ui]$/, function (m) { return poss === '1s' ? '' : m; }) + (poss === '1s' && !/[aeiuāēīū]$/.test(st) ? 'ī' : AKK.suffix[poss] === 'ī' ? '' : AKK.suffix[poss]); }
+  if (poss) { var st = e.forms.pron || e.forms.cst || base; if (poss === '1s') return st.replace(/[aiuāīū]$/, '') + 'ī'; return st + AKK.suffix[poss]; }
   if (plural) return (e.forms.pl || base + 'ū').replace(/ū$/, kase === 'nom' ? 'ū' : 'ī');
   if (!/um$/.test(w)) return w;
   return base + ({ nom: 'um', acc: 'am', gen: 'im' }[kase] || 'um');
@@ -245,6 +247,18 @@ function akkVerb(e, subj) {
 function nounPhrase(ws, orig, lang) {
   ws = ws.filter(function (w) { return !DETS[w]; });
   if (!ws.length) return null;
+  var ai = ws.indexOf('and');
+  if (ai > 0 && ai < ws.length - 1) { // X and Y
+    var parts = [], cur = [];
+    ws.forEach(function (w) { if (w === 'and') { if (cur.length) parts.push(cur); cur = []; } else cur.push(w); }); if (cur.length) parts.push(cur);
+    var nps = parts.map(function (p) { return nounPhrase(p, orig, lang); }).filter(Boolean);
+    return nps.length > 1 ? { coord: nps, en: ws.join(' '), plural: true } : nps[0] || null;
+  }
+  var oi = ws.indexOf('of');
+  if (oi > 0 && oi < ws.length - 1) { // X of Y
+    var hd = nounPhrase(ws.slice(0, oi), orig, lang), gn = nounPhrase(ws.slice(oi + 1), orig, lang);
+    if (hd && gn && !hd.pron && !hd.coord) { hd.of = gn; return hd; }
+  }
   if (ws.length === 1 && PRON[ws[0]]) return { pron: PRON[ws[0]], en: ws[0] };
   var poss = null, adjs = [], head = null;
   for (var i = 0; i < ws.length; i++) {
@@ -253,8 +267,15 @@ function nounPhrase(ws, orig, lang) {
     head = ws[i]; break;
   }
   if (!head) return null;
+  if (i < ws.length - 1) { // words after the head (Jesus Christ, king Hammurabi): keep them all, side by side (apposition)
+    var first = nounPhrase(ws.slice(0, i + 1), orig, lang), more = ws.slice(i + 1).map(function (w) { return nounPhrase([w], orig, lang); }).filter(Boolean);
+    return more.length ? { appos: [first].concat(more), en: ws.join(' '), plural: false } : first;
+  }
   var cap = orig[head] && /^[A-Z]/.test(orig[head]);
-  var n = cap ? null : findEn(head, lang, 'n');
+  var n = findEn(head, lang, 'n');
+  // a capitalised word is a name unless its first dictionary sense is exactly this word (God, King)
+  if (cap && n) { var best = C.lookupEnglish(n.lemma)[0]; if (!best || best.score < 0) n = null; }
+  if (!n && cap) { var nm = C.lookupEnglish(head, lang).filter(function (x) { return x.e.pos === 'name' && x.e.gloss.toLowerCase().indexOf(head) === 0; })[0]; if (nm) return { head: head, entry: nm.e, plural: false, poss: null, adjs: [], name: false, cap: true, propername: true }; }
   return { head: head, entry: n ? n.hit.e : null, plural: n ? n.plural : false, poss: poss, adjs: adjs, name: !n, cap: cap };
 }
 C.translateEnglish = function (text, lang) {
@@ -269,7 +290,7 @@ function draft(s, lang) {
   var low = s.toLowerCase().replace(/n't\b/g, ' not').replace(/'m\b/g, ' am').replace(/'re\b/g, ' are').replace(/'s\b/g, ' is');
   var ws = low.replace(/[^a-z' ]+/g, ' ').trim().split(/\s+/).filter(Boolean); if (!ws.length) return null;
   var words = [], notes = [], neg = false, ok = 0, total = 0;
-  function W(text, en, how, gloss, kind) { words.push({ text: text, en: en, how: how, gloss: gloss || '', kind: kind || 'word', lang: lang }); total++; if (!/by sound/.test(how)) ok++; }
+  function W(text, en, how, gloss, kind, cun) { words.push({ text: text, en: en, how: how, gloss: gloss || '', kind: kind || 'word', lang: lang, cun: cun || '' }); total++; if (!/by sound/.test(how)) ok++; }
   var whole = C.lookupEnglish(ws.join(' '), lang).filter(function (x) { return ws.length === 1 || x.e.pos === 'phr'; });
   if (whole.length && ws.length === 1) { var e0 = whole[0].e; W(lang === 'akk' ? e0.word : e0.word, ws[0], 'dictionary', e0.gloss); return finish(0.8); }
   ws = ws.filter(function (w) { if (w === 'not' || w === 'never') { neg = true; return false; } return !/^(do|does|did|will|shall)$/.test(w); });
@@ -289,17 +310,30 @@ function draft(s, lang) {
     if (v && !v.hit.stative && (k > 0 || ws.length === 1 || !findEn(ws[k], lang, 'n'))) { vi = k; verb = v; break; }
   }
   var subj = vi > 0 ? nounPhrase(ws.slice(0, vi), orig, lang) : null, rest = vi >= 0 ? ws.slice(vi + 1) : ws;
-  function npOut(np, kase) {
+  function npOut(np, kase, construct) {
     if (!np) return;
-    if (np.name) { var sp = C.spellBySound(orig[np.head] || np.head); W(sp.tr, np.head, (np.cap ? 'name' : 'not in dictionary') + ': by sound (' + sp.source + ')', '', 'name'); return; }
+    if (np.appos) { np.appos.forEach(function (c, ci) { if (ci && c.name && c.cap && np.appos[ci - 1].name && np.appos[ci - 1].cap) c.namePart = true; npOut(c, lang === 'sux' && kase === 'erg' && ci < np.appos.length - 1 ? 'abs' : kase, construct && ci === np.appos.length - 1); }); return; }
+    if (np.coord) { np.coord.forEach(function (c, ci) { if (ci) W(lang === 'akk' ? 'u' : 'u₃', 'and', 'conjunction'); npOut(c, kase); }); return; }
+    if (np.of) { // X of Y: Akkadian construct state + genitive; Sumerian genitive -ak
+      var gen = np.of; np.of = null;
+      if (lang === 'akk') { npOut(np, kase, true); npOut(gen, 'gen'); }
+      else { npOut(np, kase === 'erg' ? 'abs' : kase); npOut(gen, 'abs'); words[words.length - 1].text += '-ak' + (kase === 'erg' ? '-e' : ''); words[words.length - 1].how += ' + genitive -ak'; }
+      notes.push(lang === 'akk' ? '"of" written with the construct state and the genitive' : '"of" written with the genitive -ak');
+      return;
+    }
+    if (np.pron) { var pt = (lang === 'akk' ? AKK : SUX).indep[np.pron]; if (pt) W(pt, np.en, 'pronoun'); return; }
+    if (!np.entry && !np.name) return;
+    if (np.name) { var sp = C.spellBySound(orig[np.head] || np.head); W(sp.tr + (lang === 'sux' && kase === 'erg' ? '-e' : ''), np.head, (np.namePart ? 'rest of the name' : np.cap ? 'name' : 'not in dictionary') + ': by sound (' + sp.source + ')', '', 'name'); return; }
     var e = np.entry, t;
-    if (lang === 'akk') t = akkNoun(e, kase, np.poss, np.plural);
-    else { t = e.word + (np.plural ? '-me-eš' : '') + (np.poss ? '-' + SUX.suffix[np.poss] : '') + (kase === 'erg' ? '-e' : ''); }
+    if (np.propername) { W(e.word, np.head, 'dictionary (name)', e.gloss, 'word', e.cun || e.sumerogram); return; }
+    if (lang === 'akk') t = construct && !np.poss ? (np.plural ? akkNoun(e, 'gen', null, true) : akkConstruct(e)) : akkNoun(e, kase, np.poss, np.plural);
+    else { t = e.word + (np.plural ? '-me-eš' : '') + (np.poss ? '-' + SUX.suffix[np.poss] : '') + (kase === 'erg' && !np.adjs.length ? '-e' : ''); }
     W(t, np.head, 'dictionary' + (lang === 'akk' && e.word.match(/um$/) ? ' (' + ({ nom: 'subject', acc: 'object', gen: 'after a preposition' }[kase] || 'subject') + ' ending)' : '') + (np.poss ? ' + possessive' : ''), e.gloss);
-    np.adjs.forEach(function (a) { var ae = a.a.hit.e; W(lang === 'akk' ? akkNoun(ae, kase) : ae.word, a.en, 'dictionary (adjective after noun)', ae.gloss); });
+    np.adjs.forEach(function (a) { var ae = a.a.hit.e; var m3 = lang === 'akk' && ae.pos === 'v' ? /^([^aeiuāēīū])a([^aeiuāēīū]+)ā([^aeiuāēīū])um$/.exec(stripLen(ae.word) === ae.word ? ae.word : ae.word) : null; W(lang === 'akk' ? (m3 ? akkNoun({ word: m3[1] + 'a' + m3[2] + m3[3] + 'um', forms: {} }, kase) : akkNoun(ae, kase)) : ae.word, a.en, 'dictionary (adjective after noun)', ae.gloss); });
+    if (lang === 'sux' && kase === 'erg' && np.adjs.length) words[words.length - 1].text += '-e';
   }
   if (vi < 0) {
-    ws.filter(function (w) { return !DETS[w] && w !== 'and'; }).forEach(function (w) { npOut(nounPhrase([w], orig, lang), 'nom'); });
+    var wnp = nounPhrase(ws, orig, lang); if (wnp) npOut(wnp, 'nom'); else ws.filter(function (w) { return !DETS[w] && w !== 'and'; }).forEach(function (w) { npOut(nounPhrase([w], orig, lang), 'nom'); });
     notes.push('no verb found: written as a list of words');
   } else if (isBe) {
     var pr = rest.filter(function (w) { return !DETS[w]; }), adj = pr.length === 1 ? findEn(pr[0], lang, 'adj') : null;
@@ -307,8 +341,12 @@ function draft(s, lang) {
     if (lang === 'akk') {
       if (subj && !subj.pron) npOut(subj, 'nom');
       if (adj || pr.length) {
-        var pe = adj ? adj.hit.e : (nounPhrase(pr, orig, lang) || {}).entry;
-        if (pe) { W((neg ? 'ul ' : '') + akkStative(pe, person), pr.join(' '), 'stative ("is …")', pe.gloss); notes.push('"to be" written with the stative: ' + (person === '3sm' ? 'no ending' : 'ending -' + AKK.stat[person])); }
+        var pnp = adj ? null : nounPhrase(pr, orig, lang), pe = adj ? adj.hit.e : (pnp || {}).entry;
+        if (pnp && (/^3/.test(person) || !pe || pnp.coord || pnp.of || pnp.name)) { // nominal sentence: "X (is) Y"
+          if (subj && subj.pron) W(AKK.indep[subj.pron], subj.en, 'pronoun');
+          if (neg) W('ul', 'not', 'negation');
+          npOut(pnp, 'nom'); notes.push('"is" left unwritten: an Akkadian nominal sentence (subject, then predicate)');
+        } else if (pe) { W((neg ? 'ul ' : '') + akkStative(pe, person), pr.join(' '), 'stative ("is …")', pe.gloss); notes.push('"to be" written with the stative: ' + (person === '3sm' ? 'no ending' : 'ending -' + AKK.stat[person])); }
         else npOut(nounPhrase(pr, orig, lang), 'nom');
       }
     } else {
@@ -318,13 +356,15 @@ function draft(s, lang) {
       W((neg ? 'nu-' : '') + 'am₃', 'is', 'copula -am₃'); notes.push('Sumerian copula -am₃ ("it is")');
     }
   } else {
+    var ind = null; // "gave me bread": an indirect object pronoun before the object
+    if (rest.length > 1 && /^(me|you|him|her|us|them)$/.test(rest[0])) { ind = PRON[rest[0]]; rest = rest.slice(1); }
     var obj = rest.length ? nounPhrase(rest, orig, lang) : null, ve = verb.hit.e;
     var sp2 = subj && subj.pron ? subj.pron : (subj && subj.plural ? '3p' : '3sm');
     if (lang === 'akk') {
       if (subj && !subj.pron) npOut(subj, 'nom');
       if (obj && !obj.pron) npOut(obj, 'acc');
       pps.forEach(function (p) { W(AKK.prep[p.p], p.p, 'preposition'); npOut(p.np, 'gen'); }); pps = [];
-      var vf = akkVerb(ve, sp2) + (obj && obj.pron ? AKK.objsuf[obj.pron] : '');
+      var vf = akkVerb(ve, sp2) + (ind ? AKK.dat[ind] : obj && obj.pron ? AKK.objsuf[obj.pron] : ''); if (ind) notes.push('"to me / to you" written as a dative ending on the verb');
       W((neg ? 'ul ' : '') + vf, ws[vi], 'dictionary (verb, past tense' + (obj && obj.pron ? ', object ending' : '') + ')', ve.gloss);
       notes.push('Akkadian order: subject, object, verb last; the verb shows the subject with its prefix');
     } else {
@@ -332,7 +372,7 @@ function draft(s, lang) {
       if (obj && !obj.pron) npOut(obj, 'abs');
       pps.forEach(function (p) { npOut(p.np, 'abs'); W('-' + SUX.prep[p.p], p.p, 'case ending'); }); pps = [];
       var vparts = ve.word.split(' '), vlast = vparts.pop();
-      W((vparts.length ? vparts.join(' ') + ' ' : '') + (neg ? 'nu-' : '') + 'mu-' + vlast.replace(/^-/, ''), ws[vi], 'dictionary (verb with the prefix mu-' + (vparts.length ? '; compound verb' : '') + ')', ve.gloss);
+      W((vparts.length ? vparts.join(' ') + ' ' : '') + (neg ? 'nu-' : '') + (ind === '1s' ? 'ma-' : 'mu-') + vlast.replace(/^-/, ''), ws[vi], 'dictionary (verb with the prefix mu-' + (vparts.length ? '; compound verb' : '') + ')', ve.gloss);
       notes.push('Sumerian order: subject (with -e when there is an object), object, verb last; the verb chain is simplified');
     }
   }
@@ -341,6 +381,30 @@ function draft(s, lang) {
   return finish(Math.min(lang === 'akk' ? 0.75 : 0.6, (total ? ok / total : 0) * (lang === 'akk' ? 0.75 : 0.6)));
   function finish(conf) { return { english: s, words: words, text: words.map(function (w) { return w.text; }).join(' ').replace(/ -/g, '-'), notes: notes, confidence: Math.round(conf * 100) / 100 }; }
 }
+
+/* English word -> its cuneiform word sign, when the dictionary has a clear match (nouns and adjectives) */
+var FUNCW = ' the a an of to in on at by for from with and or but is are was were be been am i you he she it we they me him her us them my your his its our their this that these those not no yes do does did have has had will would can could shall should may might must so as if then than ';
+function wordSignFor(w) {
+  var lw = w.toLowerCase(), c = C.lookupEnglish(lw), has = function (y, first) { return (' ' + (first ? y.gloss.split(' ; ')[0] : y.gloss).toLowerCase().replace(/[^a-z ]/g, ' ') + ' ').indexOf(' ' + lw + ' ') >= 0; };
+  for (var i = 0; i < c.length; i++) {
+    var x = c[i], e = x.e, cun = e.cun || e.sumerogram;
+    var isName = e.pos === 'name' && has(e, true);
+    if (x.score < (isName ? -1.0 : -0.2)) continue;
+    if (!cun || Array.from(cun).length > (isName ? 5 : 3) || !(isName || e.pos === 'n' || e.pos === 'adj' || e.pos === 'num' || x.stative)) continue;
+    var same = (BYCUN[cun] || []).concat(LEX.filter(function (y) { return y.lang === 'akk' && y.sumerogram === cun; }));
+    var sx = e.lang === 'sux' ? e : (same.filter(function (y) { return y.lang === 'sux' && has(y, true); })[0] || same.filter(function (y) { return y.lang === 'sux' && has(y); })[0] || same.filter(function (y) { return y.lang === 'sux'; })[0] || null);
+    var ak = e.lang === 'akk' ? e : (same.filter(function (y) { return y.lang === 'akk' && has(y); })[0] || null);
+    var names = Array.from(cun).map(function (u) { return BYCHAR[u]; });
+    if (names.some(function (n) { return !n; })) continue;
+    // write it the way Assyriologists do: the Sumerian reading in capitals (DINGIR, LUGAL, NINDA)
+    var tr = names.join('.'), disp = tr;
+    if (sx) { var sw = sx.word.replace(/\s+/g, '-').replace(/ᵈ/g, '{d}').replace(/ᵏⁱ/g, '{ki}').replace(/ᵐ/g, '{m}').replace(/ᶠ/g, '{f}'), p = C.parseWord(sw); if (!p.errors.length && p.signs.map(function (g) { return g.u; }).join('') === cun) { tr = sw; disp = sw.replace(/(\{[^}]*\})|([^{}]+)/g, function (m, b, t) { return b || t.toUpperCase().replace(/G̃/g, 'NG'); }); } }
+    var how = [sx ? 'Sumerian ' + sx.word : '', ak ? 'Akkadian ' + ak.word : ''].filter(Boolean).join(', ');
+    return { tr: tr, disp: disp, how: how, gloss: e.gloss.split(' ; ')[0] };
+  }
+  return null;
+}
+C.wordSignFor = wordSignFor;
 
 /* ----------------------------------------------- one call: any input -> words of signs */
 /* mode: 'akk' Akkadian (normalised or syllabic), 'sux' Sumerian, 'signs' exact transliteration / sign names,
@@ -358,7 +422,16 @@ C.process = function (text, mode, opts) {
   if (mode === 'english') {
     var lang = opts.lang || 'akk', t = C.translateEnglish(text, lang); res.translation = t;
     t.sentences.forEach(function (s) { s.words.forEach(function (w) {
-      if (w.kind === 'name') { soundWord(w.en, w.how.indexOf('name') === 0 && opts.det && opts.det !== 'none' ? DET[opts.det] : null); return; }
+      if (w.kind === 'name') {
+        soundWord(w.en, w.how.indexOf('name') === 0 && opts.det && opts.det !== 'none' ? DET[opts.det] : null);
+        var suf = /((?:-(?:ak|e|še₃|ra|ta|da|a))+)$/.exec(w.text.slice(C.spellBySound(w.en).tr.length)); // case endings added by the draft
+        if (suf && res.words.length) { var lw = res.words[res.words.length - 1]; suf[1].split('-').filter(Boolean).forEach(function (x) { lw.signs = lw.signs.concat(C.parseWord(x).signs); }); lw.tr += suf[1]; }
+        return;
+      }
+      if (w.cun) { // a name with its own spelling in the dictionary, e.g. Marduk = {d}AMAR.UTU
+        var nms = Array.from(w.cun).map(function (u) { return BYCHAR[u]; });
+        if (nms.every(Boolean)) { fromTr(nms.join('.'), { src: w.en, norm: w.text, kind: 'word', how: w.how, gloss: w.gloss }); var sxn = (BYCUN[w.cun] || []).filter(function (y) { return y.lang === 'sux'; })[0]; res.words[res.words.length - 1].tr = sxn ? sxn.word.replace(/ᵈ/g, '{d}').replace(/ᵏⁱ/g, '{ki}').replace(/(\{[^}]*\})|([^{}]+)/g, function (m, b, t) { return b || t.toUpperCase().replace(/G̃/g, 'NG'); }) : w.text; return; }
+      }
       w.text.split(/\s+/).forEach(function (part) {
         if (/^-/.test(part) && res.words.length) { var p = C.parseWord(part.replace(/^-/, '')); var last = res.words[res.words.length - 1]; last.signs = last.signs.concat(p.signs); last.tr += part; return; }
         var tr = lang === 'akk' && !/-/.test(part) && part !== 'ul' && part !== 'ina' && part !== 'ana' ? C.spellAkkadian(part) : part === 'ul' ? 'ul' : part === 'ina' ? 'i-na' : part === 'ana' ? 'a-na' : part === 'itti' ? 'it-ti' : part;
@@ -370,7 +443,13 @@ C.process = function (text, mode, opts) {
     text.replace(/[\r\n]+/g, ' ').split(/\s+/).filter(Boolean).forEach(function (tok) {
       var core = tok.replace(/[,.;:!?"]+$/g, ''); if (!core) return;
       if (mode === 'signs') { fromTr(core, { src: core, kind: 'signs', how: 'signs as written' }); return; }
-      if (mode === 'sound') { soundWord(core, opts.det && opts.det !== 'none' ? DET[opts.det] : null); return; }
+      if (mode === 'sound') {
+        // known English words are written with their word sign (the Sumerian logogram, read in Akkadian as well): god -> DINGIR, king -> LUGAL
+        var ws = opts.wordSigns === false ? null : wordSignFor(core);
+        if (ws) { fromTr(ws.tr, { src: core, kind: 'word', how: 'word sign: ' + ws.how, gloss: ws.gloss }); res.words[res.words.length - 1].tr = ws.disp; return; }
+        // the name marker goes on names: words written with a capital letter
+        soundWord(core, /^[A-Z]/.test(core) && FUNCW.indexOf(' ' + core.toLowerCase() + ' ') < 0 && opts.det && opts.det !== 'none' ? DET[opts.det] : null); return;
+      }
       if (mode === 'akk') {
         var es = C.lookupWord('akk', core);
         if (/-/.test(core) || /[A-Z]{2}/.test(core)) { fromTr(core, { src: core, kind: es.length ? 'word' : 'signs', how: 'syllables as written', gloss: es.length ? es[0].gloss : '' }); return; }
@@ -469,7 +548,7 @@ function finishRead(words, res) {
   res.words = words.map(function (w) {
     var u = w.map(function (h) { return String.fromCodePoint(parseInt(h, 16)); }).join('');
     var names = readNames(w), o = { unicode: u, names: names };
-    var sx = BYCUN[u]; if (sx) { o.lang = 'sux'; o.tr = sx[0].word; o.gloss = sx.map(function (e) { return e.gloss.split(' ; ')[0]; }).slice(0, 3).join(' | '); return o; }
+    var sx = BYCUN[u]; if (sx) { o.lang = 'sux'; o.tr = sx[0].word; o.gloss = sx.length > 1 ? sx.slice(0, 3).map(function (e) { return e.word + ': ' + e.gloss.split(' ; ')[0]; }).join(' | ') : sx[0].gloss.split(' ; ').slice(0, 2).join('; '); var ak = LEX.filter(function (e) { return e.lang === 'akk' && e.sumerogram === u; })[0]; if (ak) o.gloss += ' (Akkadian ' + ak.word + ')'; return o; }
     var sr = syllableReading(names); o.tr = sr.first;
     var ak = sr.det ? null : akkFromSyllables(sr.names);
     if (ak) { o.lang = 'akk'; o.tr = ak.tr; o.norm = ak.form || ak.e.word; o.gloss = (ak.form ? ak.label + ' of ' + ak.e.word + ': ' : '') + ak.e.gloss.split(' ; ').slice(0, 2).join('; '); return o; }

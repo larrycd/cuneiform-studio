@@ -1,4 +1,4 @@
-Cuneiform Studio 1.0.0 - by Larry Dalton
+Cuneiform Studio 1.0.3 - by Larry Dalton
 
 Write and read Akkadian and Sumerian cuneiform, on your own computer.
 - Akkadian words spelled by syllable, Sumerian words with their dictionary signs

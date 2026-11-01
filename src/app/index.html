@@ -88,7 +88,7 @@ select { background:var(--panel2); color:var(--text); border:1px solid var(--lin
     <textarea id="src" spellcheck="false">The king sees the god.</textarea>
     <div class="hint" id="modehint"></div>
     <div class="row" style="margin-top:8px"><span class="hint">Mark names with:</span>
-      <select id="det"><option value="man">the man's-name sign (DIŠ)</option><option value="woman">the woman's-name sign (MUNUS)</option><option value="god">the god sign (DINGIR)</option><option value="none">no marker</option></select></div>
+      <select id="det"><option value="man">the man's-name sign (DIŠ)</option><option value="woman">the woman's-name sign (MUNUS)</option><option value="god">the god sign (DINGIR)</option><option value="none">no marker</option></select><label id="wsrow" class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="wsign" checked> Known words as word signs</label></div>
     <div class="chips" id="examples"></div>
     <h3>Common syllable signs</h3>
     <div class="hint">Click to insert. On a plain keyboard type sz for š, s, for ṣ, t, for ṭ and h for ḫ; numbers mark sign variants (e2 = e₂).</div>
@@ -181,14 +181,14 @@ var $ = function (id) { return document.getElementById(id); };
 var mode = 'english', lang = 'akk', style = 'lines', lastSVG = '', lastRes = null, ready = false, tok = 0, LEXROWS = null, SIGNS = null;
 var EX = {
   english: ['The king sees the god.', 'I am a king.', 'The scribe writes the tablet.', 'The god built the house.', 'My house is good.', 'We go to the city.'],
-  sound: ['Larry Dalton', 'Hello world', 'Sydney Australia', 'Jessica'],
+  sound: ['Larry Dalton', 'Jesus god', 'Marduk king of Babylon', 'Sydney Australia', 'fish and bread'],
   akk: ['šarrum', 'ilum bītam ibni', 'šar-ru-um', 'awīlum', 'ṭupšarrum ṭuppam išṭur'],
   sux: ['lugal', 'e2', 'dingir', 'dub-sar', 'lugal-e e2 mu-du3'],
   signs: ['{d}AMAR.UTU', 'LUGAL', 'a-na be-li2-ia', '{m}ha-am-mu-ra-bi', 'e2-gal']
 };
 var HINT = {
   english: 'English sentences become a rule-based draft in the language you choose. Words that are not in the dictionary are written by sound.',
-  sound: 'Every English word or name is written by its sound in syllable signs.',
+  sound: 'English words and names. Words the dictionary knows (god, king, fish, Marduk, Babylon) are written with their word sign, as the scribes did; everything else is written by sound in syllable signs. Words with a capital letter get the name marker.',
   akk: 'Akkadian words, normalised (šarrum) or in syllables (šar-ru-um). Normalised words are spelled syllable by syllable.',
   sux: 'Sumerian words in transliteration (lugal, e2 or e₂, dingir or dig̃ir). Dictionary words use their dictionary signs.',
   signs: 'Exact signs: values joined by hyphens (a-na), sign names in capitals (LUGAL), markers in braces ({d} god, {m} man, {f} woman, {ki} place).'
@@ -198,14 +198,14 @@ function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 function setChips() {
   $('examples').innerHTML = '';
   EX[mode].forEach(function (t) { var c = document.createElement('span'); c.className = 'chip'; c.textContent = t; c.onclick = function () { $('src').value = t; go(); }; $('examples').appendChild(c); });
-  $('modehint').textContent = HINT[mode]; $('langrow').style.display = mode === 'english' ? '' : 'none';
+  $('modehint').textContent = HINT[mode]; $('wsrow').style.display = mode === 'sound' ? 'flex' : 'none'; $('langrow').style.display = mode === 'english' ? '' : 'none';
 }
 function mini(words, size) { return CU.render(words, { theme: 'night', size: size || 30 }).replace(/<metadata>[\s\S]*?<\/metadata>/, '').replace(/<rect width="[^"]*" height="[^"]*" fill="[^"]*"\/>/, ''); }
-function kindTag(w) { return w.kind === 'word' ? '<span class="tag w">dictionary</span>' : w.kind === 'name' ? '<span class="tag nm">by sound</span>' : w.kind === 'signs' ? '<span class="tag">as written</span>' : '<span class="tag uv">not in dictionary</span>'; }
+function kindTag(w) { return /^word sign/.test(w.how || '') ? '<span class="tag w">word sign</span>' : w.kind === 'word' ? '<span class="tag w">dictionary</span>' : w.kind === 'name' ? '<span class="tag nm">by sound</span>' : w.kind === 'signs' ? '<span class="tag">as written</span>' : '<span class="tag uv">not in dictionary</span>'; }
 function go() {
   if (!ready) return;
   var res;
-  try { res = CU.process($('src').value, mode, { lang: lang, det: $('det').value }); } catch (e) { $('stage').innerHTML = '<div class="note">' + esc(e.message) + '</div>'; return; }
+  try { res = CU.process($('src').value, mode, { lang: lang, det: $('det').value, wordSigns: $('wsign').checked }); } catch (e) { $('stage').innerHTML = '<div class="note">' + esc(e.message) + '</div>'; return; }
   lastRes = res;
   if (res.translation) {
     var t = res.translation, h = '<div class="lat" style="margin-bottom:6px">' + esc(t.transliteration) + '</div>';
@@ -222,7 +222,8 @@ function go() {
   var tb = $('words').querySelector('tbody'); tb.innerHTML = '';
   res.words.forEach(function (w) {
     var m = w.gloss ? esc(w.gloss) : esc(w.how || '');
-    if (w.kind === 'name') m = 'Written by sound (' + esc(w.how) + ')' + (w.candidates && w.candidates.length ? ' <span class="hint">Reads back as: ' + esc(w.candidates.join(', ')) + '</span>' : '');
+    if (w.kind === 'name') m = 'Written ' + esc(w.how) + (w.candidates && w.candidates.length ? ' <span class="hint">Reads back as: ' + esc(w.candidates.join(', ')) + '</span>' : '');
+    if (/^word sign/.test(w.how || '')) m += ' <span class="hint">(' + esc(w.how.replace(/^word sign: ?/, '') || 'word sign') + ')</span>';
     if (w.sumerogram) m += ' <span class="hint">Scribes also wrote it with the Sumerian sign <span style="font-family:NotoCun;font-size:18px">' + esc(w.sumerogram) + '</span>.</span>';
     tb.insertAdjacentHTML('beforeend', '<tr><td class="k">' + esc(w.src || w.tr) + (w.tr && w.tr !== w.src ? '<br><span class="hint">' + esc(w.tr) + '</span>' : '') + '</td><td>' + kindTag(w) + '</td><td>' + m + '</td></tr>');
   });
@@ -256,7 +257,7 @@ segClick('modes', function (b) { mode = b.dataset.m; setChips(); go(); });
 segClick('langs', function (b) { lang = b.dataset.l; go(); });
 segClick('styles', function (b) { style = b.dataset.s; render(); });
 segClick('tabs', function (b) { document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('on', t.id === 't-' + b.dataset.t); }); });
-$('theme').onchange = render; $('size').onchange = render; $('det').onchange = go;
+$('theme').onchange = render; $('size').onchange = render; $('det').onchange = go; $('wsign').onchange = go;
 var tmr = null; $('src').oninput = function () { clearTimeout(tmr); tmr = setTimeout(go, 300); };
 
 /* Reader */
@@ -330,6 +331,10 @@ $('runtest').onclick = function () {
     [['The king sees the god.', 'akk', 'šarrum ilam īmur'], ['The god built the house.', 'akk', 'ilum bītam ibni'], ['The king is great.', 'sux', 'lugal gal am₃'], ['I am a king.', 'akk', 'šarrāku']].forEach(function (c) { var t = CU.translateEnglish(c[0], c[1]); check('Draft ' + c[1] + ' "' + c[0] + '"', t.transliteration === c[2], t.transliteration); });
     var fr = CU.readSVG(CU.render(CU.process('ilum bītam ibni', 'akk').words, {})), fn = fr.words.map(function (w) { return w.norm || w.tr; }).join(' ');
     check('Reader recognises inflected Akkadian', fn === 'ilum bītam ibni', fn);
+    [['akk', 'u ilum'], ['sux', 'u₃ dig̃ir am₃']].forEach(function (c) { var t = CU.translateEnglish('Jesus is the Christ and God', c[0]).transliteration; check('Draft ' + c[0] + ' "Jesus is the Christ and God"', t.slice(-c[1].length) === c[1], t); });
+    [['Jesus Christ is God', 'akk', 'zi-za-as ka-ra-is-ti ilum'], ['Jesus Christ is God', 'sux', 'zi-za-as ka-ra-is-ti dig̃ir am₃'], ['My father gave me bread and beer', 'akk', 'abī akalam u šikaram iddinam']].forEach(function (c) { var t = CU.translateEnglish(c[0], c[1]).transliteration; check('Draft ' + c[1] + ' "' + c[0] + '"', t === c[2], t); });
+    var tk = CU.translateEnglish('Marduk is the king of the gods', 'akk').transliteration; check('Draft akk "Marduk is the king of the gods"', tk === 'Marduk šar ilī', tk);
+    var gp = CU.process('Jesus god', 'sound', { det: 'man' }); check('English word sign: god', gp.transliteration === '{m}zi-za-as DINGIR', gp.transliteration);
     log('Image read-back (rendered here, then read from pixels)…');
     var cs = [[[['akk', 'šarrum ilum bītum']], 'lines', 'clay', 1], [[['sux', 'lugal e2 dingir']], 'lines', 'night', 1.5], [[['sound', 'Larry Dalton']], 'ancient', 'stone', 1], [[['signs', '{d}AMAR.UTU LUGAL']], 'lines', 'gold', 0.8]];
     var chain = Promise.resolve();

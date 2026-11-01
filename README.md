@@ -19,8 +19,8 @@ A local Windows studio that turns Akkadian, Sumerian, English and names into cun
 
 | Input | What happens |
 |---|---|
-| **English → translate** (`The king sees the god.`) | A rule-based **draft** in the language you choose. **Akkadian:** subject, object, verb last, case endings, past tense with person prefixes, the stative for "is" (*šarrum ilam īmur*, *šarrāku* "I am king"). **Sumerian:** the doer marked with -e, the verb with mu-, the copula -am₃ (*lugal-e dig̃ir igi mu-sig₁₀*). Every draft shows its confidence and a word-by-word breakdown. |
-| **English by sound** (`Larry Dalton`) | Any English word or name written in syllable signs, the way foreign names were written in Babylonia, with the man's-name, woman's-name or god sign in front: *{m}le-ri {m}dul-tan*. |
+| **English → translate** (`The king sees the god.`) | A rule-based **draft** in the language you choose. **Akkadian:** subject, object, verb last, case endings, past tense with person prefixes, the stative for "is" with adjectives and nominal sentences with nouns (*šarrum ilam īmur*, *šarrāku* "I am king", *ilum rabi* "God is great"), "and" (*u*) and "of" with the construct state (*Marduk šar ilī* "Marduk is the king of the gods"). **Sumerian:** the doer marked with -e, the verb with mu-, the copula -am₃, the genitive -ak (*lugal-e dig̃ir igi mu-sig₁₀*, *ᵈamar-utu lugal dig̃ir-me-eš-ak am₃*). Every draft shows its confidence and a word-by-word breakdown. |
+| **English words and names** (`Larry Dalton`, `Jesus god`) | Words the dictionary knows are written with their **word sign**, as the scribes did: *god* → DINGIR, *king* → LUGAL, *fish* → KU₆, *Marduk* → {d}AMAR-UTU, *Babylon* → BABILIM₂{ki}. Everything else is written by sound in syllable signs, the way foreign names were written in Babylonia; words with a capital letter get the man's-name, woman's-name or god sign in front: *{m}le-ri {m}dul-tan*. Word signs can be switched off to write everything by sound. |
 | **Akkadian** (`šarrum`, `šar-ru-um`) | Normalised words are split into syllables and written as the scribes did, with a CVC sign where one exists (*šar-ru-um*). Syllabic spellings are written exactly. |
 | **Sumerian** (`lugal`, `e2`, `dingir`) | Dictionary words use their dictionary signs (LUGAL "king", E₂ "house"). Plain-keyboard spellings work: `e2` = e₂, `ng` = g̃, `sz` = š. |
 | **Signs** (`{d}AMAR.UTU`, `a-na be-li2-ia`) | Exact transliteration: values joined by hyphens, sign names in capitals, markers in braces (`{d}` god, `{m}` man, `{f}` woman, `{ki}` place). |
@@ -43,7 +43,7 @@ Output can be exported as SVG or PNG, or copied as transliteration or **Unicode 
 | Every dictionary word the studio writes (1,690 words in 434 SVGs) | **434 / 434** read back to exactly the same signs |
 | 120 new random texts as PNG/JPEG (Akkadian, Sumerian, names), 0.6× to 2×, four colour schemes, both layouts | **111 / 120 exact**; all 9 misses were flagged as uncertain |
 | Images that are not cuneiform (Latin text, noise, icon, hieroglyphs, pIqaD, Heptapod) | **9 / 9 refused** (these images were also used to set the refusal threshold) |
-| Built-in self-test, in the studio page | **15 passed, 0 failed** |
+| Built-in self-test, in the studio page | **22 passed, 0 failed** |
 
 Many cuneiform signs differ by a single wedge, so image reading can confuse near-identical signs. **Use SVG for exact results.** Details: [docs/READER.md](docs/READER.md).
 

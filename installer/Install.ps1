@@ -12,7 +12,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Port = 8768
-$Version = '1.0.0'
+$Version = '1.0.3'
 $ResultFile = Join-Path $env:TEMP 'CuneiformStudio-install-result.txt'
 if (-not $Source) { $Source = Join-Path $PSScriptRoot 'payload' }
 $App = Join-Path $env:LOCALAPPDATA 'CuneiformStudio'
